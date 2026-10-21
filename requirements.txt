@@ -1,0 +1,6 @@
+requests>=2.31
+PyYAML>=6.0
+beautifulsoup4>=4.12
+playwright>=1.44
+fonttools>=4.50
+brotli>=1.1

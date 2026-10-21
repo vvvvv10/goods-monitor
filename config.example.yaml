@@ -1,0 +1,125 @@
+# ============================================================
+# deal-monitor 配置文件
+# 用法: 复制本文件为 config.yaml 后修改各项参数
+# ============================================================
+
+# ---------- 通知 ----------
+notify:
+  # 在本机终端也打印提醒（程序窗口开着时能直接看到）
+  console: true
+  channels:
+    # 钉钉群机器人：
+    # 钉钉群里 → 群设置 → 机器人 → 添加"自定义机器人"；
+    # 安全设置选「自定义关键词」→ 关键词填：监控（本程序所有消息都自带"监控"字样）；
+    # 若选「加签」→ 把密钥填到 secret。
+    - type: dingtalk
+      webhook: "https://oapi.dingtalk.com/robot/send?access_token=在这里粘贴你的TOKEN"
+      secret: ""            # 可选：加签密钥（安全设置选"加签"时必填）
+    # 企业微信群机器人：群设置 → 群机器人 → 添加，复制 webhook 地址
+    # - type: wecom
+    #   webhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=在这里粘贴你的KEY"
+    # 通用 webhook：POST {"title": "...", "text": "..."}，可对接 Bark / 自建服务
+    # - type: webhook
+    #   url: "https://example.com/push"
+
+# 同一条提醒（同一规则 + 同一商品 + 同一触发原因）在 N 小时内不重复发送
+alert_cooldown_hours: 6
+
+# ---------- 存储与日志 ----------
+storage:
+  db_path: data/monitor.db
+logging:
+  file: data/monitor.log
+  level: INFO
+
+# ---------- 本地 Web 面板（run.py web / scripts/web.sh） ----------
+web:
+  host: 127.0.0.1           # 仅本机访问；不建议改成 0.0.0.0
+  port: 8765
+
+# ---------- 浏览器（淘宝/拼多多/闲鱼 需要；也用于京东的部分兜底场景） ----------
+browser:
+  headless: true            # true=后台无窗口运行；调试选择器时可临时改 false 看页面
+  channel: chrome           # 使用本机已装 Chrome；留空 "" 则用 playwright 自带内核
+  profiles_dir: data/profiles
+  navigation_timeout_ms: 30000
+
+# ---------- 各平台检查间隔（秒）与随机浮动比例（0.3=±30%） ----------
+# 间隔建议不要调太小，频率过高容易触发平台风控。
+platforms:
+  jd:     { enabled: true, interval: 120, jitter: 0.3 }
+  taobao: { enabled: true, interval: 180, jitter: 0.4 }
+  pdd:    { enabled: true, interval: 180, jitter: 0.4 }
+  xianyu: { enabled: true, interval: 300, jitter: 0.5 }
+
+# ============================================================
+# 虚拟币监控（OKX 现货，每天定时发日报到钉钉群）
+#   候选：24h 成交额 ≥ min_volume_usd 的 USDT 币对（自动排除稳定币/杠杆代币）
+#   触发：最近 decline_days 个已收盘日线连续下跌
+#   新币：上市 ≤ new_coin_days 天且连续下跌的，单独置顶重点关注
+#   数据源：内置国内直连镜像（免翻墙）；开了代理则自动改走官方域名。
+#         镜像域名会轮换，失效时可在 base_urls 覆写。
+# ============================================================
+crypto:
+  enabled: false            # 开启后 run/daemon 会在每天 report_time 推送日报
+  min_volume_usd: 2000000   # 24h 成交额下限（美元）
+  decline_days: 2           # 连续下跌天数触发
+  new_coin_days: 5          # 新币关注：上市 ≤N 天（0=关闭，不受成交额门槛限制）
+  report_time: "00:10"      # 每日发送时间（本机时区）
+  send_always: true         # 测试阶段：无论是否触发都发送；正式后改 false
+  max_items: 30             # 触发列表最多展示条数
+  base_urls: []             # 数据源留空=内置镜像+官方自动选择；可覆写
+  proxy: ""                 # 留空=自动探测常见端口；也可填 http://127.0.0.1:7890
+  timeout: 12               # 单次请求超时（秒）
+
+# ============================================================
+# 监控规则
+#   type: item    指定商品：贴上商品链接，价格到目标值 / 降幅达标即提醒
+#   type: keyword 关键词：定时搜索，发现符合价格区间的新商品即提醒（闲鱼捡漏用这个）
+# 改好参数后把 enabled 改成 true 才会生效。
+# ============================================================
+rules:
+  # ---- 示例 1：京东指定商品 ----
+  - name: "京东-茅台飞天"
+    platform: jd
+    type: item
+    url: "https://item.jd.com/100012043978.html"
+    target_price: 2299          # 现价 ≤ 2299 时提醒
+    drop_percent: 3             # 或：比上次记录价下降 ≥3% 时提醒
+    enabled: false
+
+  # ---- 示例 2：淘宝指定商品 ----
+  - name: "淘宝-某商品"
+    platform: taobao
+    type: item
+    url: "https://detail.tmall.com/item.htm?id=更换成真实商品ID"
+    target_price: 1999
+    enabled: false
+
+  # ---- 示例 3：拼多多关键词（百亿补贴） ----
+  - name: "拼多多-百亿补贴 iPhone"
+    platform: pdd
+    type: keyword
+    keyword: "iPhone 百亿补贴"
+    max_price: 5999
+    require_badge: "百亿补贴"     # 卡片里必须带这个字样（没有可删掉此行）
+    enabled: false
+
+  # ---- 示例 4：闲鱼捡漏 ----
+  - name: "闲鱼-iPhone 15 Pro 低价"
+    platform: xianyu
+    type: keyword
+    keyword: "iPhone 15 Pro 256G"
+    min_price: 3000             # 太便宜的大概率是钓鱼/坏件，过滤掉
+    max_price: 5200
+    exclude_keywords: ["求购", "回收", "配件", "屏幕"]
+    enabled: false
+
+  # ---- 示例 5：淘宝/京东关键词捡漏 ----
+  # - name: "淘宝-百亿补贴 相机"
+  #   platform: taobao
+  #   type: keyword
+  #   keyword: "相机 百亿补贴"
+  #   max_price: 3999
+  #   require_badge: "百亿补贴"
+  #   enabled: false

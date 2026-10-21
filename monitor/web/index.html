@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>deal-monitor · 监控面板</title>
+<style>
+:root{
+  --bg:#0a0d13;
+  --panel:rgba(22,28,39,.78);
+  --border:rgba(255,255,255,.075);
+  --text:#e8edf6;
+  --muted:#8b96a8;
+  --green:#34d399;
+  --red:#fb7185;
+  --amber:#fbbf24;
+  --blue:#60a5fa;
+  --accent:#7c5cff;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;min-height:100vh;color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(1100px 620px at 10% -10%,rgba(109,94,252,.17),transparent 60%),
+    radial-gradient(900px 540px at 105% 0%,rgba(16,185,129,.07),transparent 55%),
+    radial-gradient(800px 600px at 50% 120%,rgba(59,130,246,.06),transparent 60%),
+    var(--bg);
+  background-attachment:fixed;
+}
+a{color:inherit;text-decoration:none}
+::selection{background:rgba(124,92,255,.35)}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:14px 28px;
+  border-bottom:1px solid var(--border);
+  background:rgba(10,13,19,.72);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{
+  width:38px;height:38px;border-radius:12px;display:grid;place-items:center;
+  background:linear-gradient(135deg,#6d5efc,#a855f7 60%,#ec4899);
+  box-shadow:0 10px 26px -10px rgba(109,94,252,.85);
+}
+.logo svg{width:22px;height:22px}
+.brand h1{font-size:16.5px;margin:0;letter-spacing:.2px}
+.brand p{margin:2px 0 0;font-size:11.5px;color:var(--muted);letter-spacing:.3px}
+.top-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pill{
+  display:inline-flex;align-items:center;gap:7px;font-size:12px;padding:6px 11px;
+  border-radius:999px;border:1px solid var(--border);color:var(--muted);
+  background:rgba(255,255,255,.04);white-space:nowrap;
+}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:#64748b;flex:none}
+.pill.ok{color:#a7f3d0;border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.08)}
+.pill.ok::before{background:var(--green);box-shadow:0 0 9px rgba(52,211,153,.9)}
+.pill.warn{color:#fcd34d;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.08)}
+.pill.warn::before{background:var(--amber);box-shadow:0 0 9px rgba(251,191,36,.7)}
+.clock{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;font-family:var(--mono);min-width:118px;text-align:right}
+
+/* ---------- 按钮 ---------- */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;
+  padding:9px 14px;border-radius:10px;cursor:pointer;color:var(--text);
+  border:1px solid var(--border);background:rgba(255,255,255,.045);
+  transition:transform .16s ease,background .16s ease,box-shadow .16s ease,filter .16s ease;
+  font-family:inherit;
+}
+.btn:hover{background:rgba(255,255,255,.09);transform:translateY(-1px)}
+.btn:active{transform:none}
+.btn.primary{
+  border-color:transparent;
+  background:linear-gradient(135deg,#6d5efc,#a855f7 65%,#c084fc);
+  box-shadow:0 10px 24px -10px rgba(109,94,252,.8);
+}
+.btn.primary:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.55;cursor:default;transform:none;filter:none}
+
+/* ---------- 布局 ---------- */
+main{max-width:1280px;margin:0 auto;padding:24px 28px 0;display:flex;flex-direction:column;gap:18px}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+
+/* ---------- 统计卡 ---------- */
+.stat{
+  position:relative;overflow:hidden;padding:15px 17px;min-height:108px;
+  border-radius:16px;border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(26,32,45,.9),rgba(15,20,28,.92));
+  animation:rise .45s ease both;
+}
+.stat::after{
+  content:"";position:absolute;right:-38px;bottom:-58px;width:132px;height:132px;border-radius:50%;
+  background:radial-gradient(circle,rgba(124,92,255,.2),transparent 70%);pointer-events:none;
+}
+.stat.danger::after{background:radial-gradient(circle,rgba(251,113,133,.22),transparent 70%)}
+.stat .label{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.stat .icon{
+  width:26px;height:26px;border-radius:9px;display:grid;place-items:center;font-size:13px;
+  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.06);
+}
+.stat .icon.i-purple{background:rgba(124,92,255,.14);border-color:rgba(124,92,255,.25)}
+.stat .icon.i-green{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.22)}
+.stat .icon.i-red{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.22)}
+.stat .icon.i-blue{background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.22)}
+.stat .icon.i-amber{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.22)}
+.stat .value{font-size:28px;font-weight:700;letter-spacing:-.6px;margin-top:7px;font-variant-numeric:tabular-nums}
+.stat.danger .value{color:#fda4af}
+.stat .sub{font-size:11.5px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- 卡片 ---------- */
+.card{
+  padding:21px 22px;border-radius:20px;border:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(24,30,42,.86),rgba(14,19,27,.92));
+  box-shadow:0 24px 60px -42px rgba(0,0,0,.9);
+  animation:rise .5s ease both;
+}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:13px}
+.card-head h2{margin:0;font-size:17px;letter-spacing:.2px;display:flex;align-items:center}
+.card-head .sub{display:block;margin-top:5px;font-size:12.5px;color:var(--muted)}
+.actions{display:flex;gap:9px;flex-wrap:wrap}
+.live-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--green);margin-left:9px;flex:none;
+  animation:pulse 2.2s infinite;
+}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}
+  70%{box-shadow:0 0 0 7px rgba(52,211,153,0)}
+  100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}
+}
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+
+/* ---------- chips ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:13px}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#c3cbd9;
+  padding:5px 10px;border-radius:999px;border:1px solid var(--border);
+  background:rgba(255,255,255,.045);white-space:nowrap;
+}
+.chip b{color:#fff;font-weight:600}
+.chip.green{border-color:rgba(52,211,153,.28);background:rgba(52,211,153,.08)}
+.chip.green b{color:#6ee7b7}
+.chip.red{border-color:rgba(251,113,133,.26);background:rgba(251,113,133,.08)}
+.chip.red b{color:#fda4af}
+.chip.amber{border-color:rgba(251,191,36,.28);background:rgba(251,191,36,.08)}
+.chip.amber b{color:#fcd34d}
+.chip.muted{color:var(--muted)}
+
+/* ---------- 新币重点关注 ---------- */
+.newcoin{
+  margin:0 0 14px;padding:13px 14px;border-radius:14px;
+  border:1px solid rgba(251,191,36,.24);
+  background:linear-gradient(135deg,rgba(251,191,36,.09),rgba(251,146,60,.04) 55%,rgba(255,255,255,.015));
+}
+.newcoin-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.newcoin-title{font-size:13.5px;font-weight:600;color:#fcd34d;letter-spacing:.2px}
+.newcoin-sub{font-size:11.5px;color:#b3a37e}
+.newcoin-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:9px}
+.newcoin-item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 11px;border-radius:10px;border:1px solid rgba(251,191,36,.18);
+  background:rgba(10,13,19,.45);transition:transform .16s,background .16s,border-color .16s;
+}
+.newcoin-item:hover{background:rgba(251,191,36,.09);border-color:rgba(251,191,36,.4);transform:translateY(-1px)}
+.nc-main{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
+.nc-base{font-weight:700;font-size:13px;letter-spacing:.2px}
+.nc-new{
+  font-size:9px;font-weight:700;letter-spacing:.6px;color:#fbbf24;
+  background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.3);
+  padding:1px 5px;border-radius:5px;
+}
+.nc-meta{font-size:11px;color:#a89a78;white-space:nowrap}
+.nc-drop{font-size:13px;font-weight:700;color:#fda4af;font-variant-numeric:tabular-nums;white-space:nowrap}
+.newcoin-empty{grid-column:1/-1;font-size:12px;color:#a89a78;padding:1px 2px 2px}
+
+/* ---------- 工具栏 ---------- */
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 0 12px;flex-wrap:wrap}
+.search{position:relative;flex:1;max-width:300px}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.45;width:15px;height:15px}
+.search input{
+  width:100%;padding:9px 12px 9px 34px;font-size:13px;color:var(--text);
+  background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;
+  outline:none;transition:border-color .18s,box-shadow .18s,background .18s;font-family:inherit;
+}
+.search input::placeholder{color:#667085}
+.search input:focus{
+  border-color:rgba(124,92,255,.6);background:rgba(255,255,255,.06);
+  box-shadow:0 0 0 3px rgba(124,92,255,.13);
+}
+.muted{color:var(--muted)}
+
+/* ---------- 表格 ---------- */
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:14px;max-height:560px}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+thead th{
+  position:sticky;top:0;z-index:1;text-align:left;white-space:nowrap;
+  padding:10px 12px;font-size:11.5px;font-weight:500;color:var(--muted);
+  background:#161c27;border-bottom:1px solid var(--border);
+}
+thead th.num{text-align:right}
+th.sortable{cursor:pointer;user-select:none;transition:color .15s}
+th.sortable:hover{color:#fff}
+th.sortable.active{color:#c4b5fd}
+th.sortable .arrow{font-size:10px;opacity:.8;margin-left:3px}
+tbody td{padding:10.5px 12px;border-bottom:1px solid rgba(255,255,255,.045);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr{transition:background .14s}
+tbody tr:hover{background:rgba(124,92,255,.055)}
+tbody tr.clickable{cursor:pointer}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12.5px}
+tr.dim td{opacity:.55}
+
+/* 排名 */
+.rank{
+  display:inline-grid;place-items:center;width:24px;height:24px;border-radius:8px;
+  font-size:11.5px;font-weight:700;color:var(--muted);
+  background:rgba(255,255,255,.05);border:1px solid transparent;
+}
+.rank.r1{background:rgba(251,191,36,.15);color:#fbbf24;border-color:rgba(251,191,36,.3)}
+.rank.r2{background:rgba(203,213,225,.12);color:#cbd5e1;border-color:rgba(203,213,225,.22)}
+.rank.r3{background:rgba(251,146,60,.13);color:#fdba74;border-color:rgba(251,146,60,.25)}
+
+/* 币对 */
+.coin{display:inline-flex;align-items:baseline;gap:1px;font-weight:600}
+.coin:hover .coin-base{color:#c4b5fd}
+.coin-base{transition:color .15s}
+.coin-quote{font-size:11.5px;color:var(--muted);font-weight:400}
+.new-flag{
+  font-size:9px;font-weight:700;letter-spacing:.5px;color:#fbbf24;
+  background:rgba(251,191,36,.13);border:1px solid rgba(251,191,36,.3);
+  padding:1px 4px;border-radius:4px;margin-left:5px;vertical-align:1px;
+}
+
+/* 涨跌 */
+.delta{display:inline-flex;align-items:center;gap:3px;font-weight:600;font-variant-numeric:tabular-nums}
+.delta.down{color:#fda4af}
+.delta.up{color:#6ee7b7}
+
+/* 标签 */
+.tag{
+  display:inline-block;padding:3px 8px;border-radius:7px;font-size:11.5px;
+  color:#93c5fd;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);
+}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;border:1px solid var(--border);color:var(--muted)}
+.badge.ok{color:#6ee7b7;background:rgba(52,211,153,.09);border-color:rgba(52,211,153,.26)}
+.badge.off{color:#94a3b8;background:rgba(148,163,184,.07)}
+.rule-name{font-weight:600}
+.cond{max-width:250px;overflow:hidden;text-overflow:ellipsis;color:#b8c2d2}
+.item-title{max-width:260px;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+
+/* 空状态 */
+.empty{padding:40px 18px;text-align:center;color:var(--muted);font-size:13px;line-height:2.1}
+.empty .big{font-size:15px;color:#cbd5e1;font-weight:600;margin-bottom:5px}
+.empty code{
+  padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.05);font-family:var(--mono);font-size:12px;color:#c4b5fd;
+}
+.hidden{display:none!important}
+
+/* ---------- 页脚 ---------- */
+footer{color:var(--muted);font-size:12.5px;padding:10px 2px 34px;line-height:2}
+footer .commands{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 8px}
+footer code{
+  padding:4px 9px;border-radius:8px;font-size:11.5px;font-family:var(--mono);
+  color:#c4b5fd;background:rgba(124,92,255,.08);border:1px solid rgba(124,92,255,.16);
+}
+.foot-note{font-size:11.5px;color:#667085}
+
+/* ---------- 弹窗 ---------- */
+.modal{
+  position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:rgba(5,7,12,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  opacity:0;pointer-events:none;transition:opacity .2s ease;
+}
+.modal.show{opacity:1;pointer-events:auto}
+.modal-panel{
+  width:min(780px,100%);background:#141a25;border:1px solid rgba(255,255,255,.1);
+  border-radius:20px;padding:22px;box-shadow:0 50px 120px -30px rgba(0,0,0,.95);
+  transform:translateY(10px);transition:transform .2s ease;
+}
+.modal.show .modal-panel{transform:none}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}
+.modal-head h3{margin:0;font-size:16px;max-width:560px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-head .sub{display:block;margin-top:5px;font-size:12px;color:var(--muted)}
+.icon-btn{
+  width:32px;height:32px;border-radius:9px;border:1px solid var(--border);
+  background:rgba(255,255,255,.04);color:var(--muted);cursor:pointer;font-size:13px;
+  transition:background .15s,color .15s;flex:none;
+}
+.icon-btn:hover{background:rgba(255,255,255,.09);color:#fff}
+#chart-canvas{display:block;width:100%;height:270px}
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:28px;z-index:60;
+  transform:translate(-50%,16px);opacity:0;pointer-events:none;
+  padding:11px 18px;border-radius:12px;font-size:13px;color:#e6ecf5;
+  background:#1b2230;border:1px solid rgba(255,255,255,.13);
+  box-shadow:0 24px 50px -10px rgba(0,0,0,.65);
+  transition:opacity .22s ease,transform .22s ease;max-width:80vw;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.error{border-color:rgba(251,113,133,.5);background:#241820}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:1100px){
+  .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:1000px){
+  .grid-2{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .topbar{padding:12px 16px}
+  main{padding:16px 14px 0}
+  .card{padding:16px 14px;border-radius:16px}
+  .clock{display:none}
+  .stat .value{font-size:24px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:460px){
+  .stats{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3.5 17.5l5-6.2 3.7 3.1 6.3-8.4" stroke="#fff" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14.5 6h4.5v4.5" stroke="#fff" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div>
+      <h1>deal-monitor</h1>
+      <p>价格监控 · OKX 行情日报</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="pill" id="daemon-pill">检测中…</span>
+    <span class="clock" id="clock">--:--:--</span>
+    <button class="btn" id="btn-reload" type="button">刷新面板</button>
+  </div>
+</header>
+
+<main>
+  <section class="stats" id="stats"></section>
+
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>OKX 虚拟币日报<span class="live-dot" title="行情数据"></span></h2>
+        <span class="sub" id="crypto-sub">加载中…</span>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btn-refresh" type="button">刷新行情</button>
+        <button class="btn primary" id="btn-send" type="button">发送钉钉</button>
+      </div>
+    </div>
+    <div class="chips" id="crypto-chips"></div>
+    <div class="newcoin hidden" id="newcoin-panel">
+      <div class="newcoin-head">
+        <span class="newcoin-title">🆕 新币重点关注</span>
+        <span class="newcoin-sub" id="newcoin-sub"></span>
+      </div>
+      <div class="newcoin-list" id="newcoin-list"></div>
+    </div>
+    <div class="toolbar">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M16 16l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input id="crypto-search" type="text" placeholder="搜索币种，如 BTC / PEPE" autocomplete="off">
+      </div>
+      <span class="muted" id="crypto-count"></span>
+    </div>
+    <div class="table-wrap" id="crypto-wrap">
+      <table id="crypto-table">
+        <thead>
+          <tr>
+            <th style="width:54px">#</th>
+            <th>币对</th>
+            <th class="num sortable" data-sort="last">现价<span class="arrow"></span></th>
+            <th class="num sortable active" data-sort="cum_drop">累计跌幅<span class="arrow">↓</span></th>
+            <th class="num sortable" data-sort="last_drop">昨日跌幅<span class="arrow"></span></th>
+            <th class="num sortable" data-sort="volume">24h 成交额<span class="arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="crypto-body"></tbody>
+      </table>
+    </div>
+    <div class="empty hidden" id="crypto-empty"></div>
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>监控规则</h2>
+          <span class="sub" id="rule-sub"></span>
+        </div>
+      </div>
+      <div class="table-wrap" id="rules-wrap">
+        <table>
+          <thead>
+            <tr><th>规则</th><th>平台</th><th>类型</th><th>触发条件</th><th>状态</th></tr>
+          </thead>
+          <tbody id="rules-body"></tbody>
+        </table>
+      </div>
+      <div class="empty hidden" id="rules-empty"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>最近抓取</h2>
+          <span class="sub" id="items-sub"></span>
+        </div>
+      </div>
+      <div class="table-wrap" id="items-wrap">
+        <table>
+          <thead>
+            <tr><th>商品</th><th>平台</th><th class="num">现价</th><th class="num">时间</th></tr>
+          </thead>
+          <tbody id="items-body"></tbody>
+        </table>
+      </div>
+      <div class="empty hidden" id="items-empty"></div>
+    </section>
+  </div>
+
+  <footer>
+    <div>快捷命令</div>
+    <div class="commands">
+      <code>.venv/bin/python run.py crypto --dry-run</code>
+      <code>.venv/bin/python run.py crypto</code>
+      <code>./scripts/daemon.sh status</code>
+      <code>./scripts/web.sh stop</code>
+    </div>
+    <div class="foot-note">面板只监听 127.0.0.1，不会暴露到局域网。行情每 15 分钟自动刷新；点击商品可查看价格走势。</div>
+  </footer>
+</main>
+
+<div class="modal" id="chart-modal" aria-hidden="true">
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="chart-title">
+    <div class="modal-head">
+      <div>
+        <h3 id="chart-title">价格走势</h3>
+        <span class="sub" id="chart-meta"></span>
+      </div>
+      <button class="icon-btn" id="chart-close" type="button" aria-label="关闭">✕</button>
+    </div>
+    <canvas id="chart-canvas"></canvas>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+const $ = (sel) => document.querySelector(sel);
+const state = {
+  data: null,
+  cryptoQuery: '',
+  sortKey: 'cum_drop',
+  sortDir: -1,
+  refreshing: false,
+};
+
+/* ---------- 格式化 ---------- */
+const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[ch]));
+
+function fmtUsd(v) {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—';
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+  return '$' + Math.round(v);
+}
+
+function fmtPrice(v) {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—';
+  if (v >= 100) return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (v >= 1) return '$' + v.toLocaleString('en-US', { maximumFractionDigits: 4 });
+  if (v >= 0.001) return '$' + v.toLocaleString('en-US', { maximumFractionDigits: 6 });
+  return '$' + v.toLocaleString('en-US', { maximumFractionDigits: 10 });
+}
+
+function fmtTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts * 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function hostOf(url) {
+  try { return new URL(url).host; } catch (e) { return url; }
+}
+
+/* ---------- Toast ---------- */
+let toastTimer = null;
+function toast(message, isError = false) {
+  const el = $('#toast');
+  el.textContent = message;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 3800);
+}
+
+/* ---------- 渲染 ---------- */
+function renderDaemon() {
+  const daemon = state.data.daemon;
+  const pill = $('#daemon-pill');
+  if (daemon.running) {
+    pill.className = 'pill ok';
+    pill.textContent = `监控运行中 · PID ${daemon.pid}`;
+  } else {
+    pill.className = 'pill warn';
+    pill.textContent = '监控未运行';
+  }
+}
+
+function renderStats() {
+  const d = state.data;
+  const s = d.stats;
+  const c = d.crypto.result;
+  const newDays = (c && c.new_coin_days !== undefined)
+    ? c.new_coin_days
+    : (d.crypto.new_coin_days || 0);
+  const cards = [
+    {
+      icon: '📋', cls: 'i-purple', label: '启用规则', value: s.rules_enabled,
+      sub: `共 ${s.rules_total} 条 · ${s.platforms.length} 个平台启用`,
+    },
+    {
+      icon: '🔔', cls: 'i-blue', label: '24 小时提醒', value: s.alerts_24h,
+      sub: `已去重商品 ${s.seen} 个`,
+    },
+    {
+      icon: '📈', cls: 'i-green', label: 'OKX 达标币对', value: c ? c.candidates.length : '—',
+      sub: c ? `24h 成交额 ≥ ${fmtUsd(c.min_volume)}` : '等待行情数据',
+    },
+    {
+      icon: '🔻', cls: 'i-red', label: '连续下跌触发', value: c ? c.triggered.length : '—',
+      sub: c ? `连续 ${c.decline_days} 日下跌` : '等待行情数据',
+      danger: !!c && c.triggered.length > 0,
+    },
+    {
+      icon: '🆕', cls: 'i-amber', label: '新币重点关注',
+      value: c ? (c.new_coins || []).length : '—',
+      sub: newDays ? `上市 ≤ ${newDays} 天 & 连续下跌` : '新币监控未启用',
+    },
+    {
+      icon: '⏰', cls: 'i-amber', label: '下次自动日报',
+      value: d.crypto.next_run ? d.crypto.next_run.slice(11) : '—',
+      sub: d.crypto.enabled
+        ? (d.daemon.running ? '守护进程运行中' : '⚠ 守护进程未运行')
+        : '每日日报未启用',
+    },
+  ];
+  $('#stats').innerHTML = cards.map((card) => `
+    <div class="stat ${card.danger ? 'danger' : ''}">
+      <div class="label"><span class="icon ${card.cls}">${card.icon}</span>${card.label}</div>
+      <div class="value">${card.value}</div>
+      <div class="sub" title="${esc(card.sub)}">${esc(card.sub)}</div>
+    </div>`).join('');
+}
+
+function renderCryptoMeta() {
+  const c = state.data.crypto;
+  const r = c.result;
+  $('#crypto-sub').textContent = c.enabled
+    ? `每天 ${c.report_time} 自动推送${c.send_always ? ' · 测试阶段始终发送' : ' · 仅触发时发送'}`
+    : '每日自动推送未启用（仍可手动刷新 / 发送）';
+
+  const chips = [];
+  if (r) {
+    chips.push(`<span class="chip">成交额 ≥ <b>${fmtUsd(r.min_volume)}</b></span>`);
+    chips.push(`<span class="chip">连续 <b>${r.decline_days}</b> 日下跌</span>`);
+    chips.push(`<span class="chip green">达标 <b>${r.candidates.length}</b></span>`);
+    chips.push(`<span class="chip red">触发 <b>${r.triggered.length}</b></span>`);
+    if (r.new_coin_days) {
+      chips.push(`<span class="chip amber">新币 <b>${(r.new_coins || []).length}</b></span>`);
+    }
+    chips.push(`<span class="chip">更新于 <b>${fmtTime(r.generated_at)}</b></span>`);
+    if (r.source && r.source !== 'mock') {
+      chips.push(`<span class="chip">数据源 <b>${esc(hostOf(r.source))}</b></span>`);
+    }
+  }
+  if (c.last_send_at) {
+    chips.push(`<span class="chip muted">上次发送 <b>${fmtTime(c.last_send_at)}</b></span>`);
+  }
+  $('#crypto-chips').innerHTML = chips.join('');
+}
+
+function updateSortArrows() {
+  document.querySelectorAll('#crypto-table th[data-sort]').forEach((th) => {
+    const arrow = th.querySelector('.arrow');
+    const active = th.dataset.sort === state.sortKey;
+    th.classList.toggle('active', active);
+    arrow.textContent = active ? (state.sortDir === 1 ? '↑' : '↓') : '';
+  });
+}
+
+function renderCryptoTable() {
+  const r = state.data?.crypto?.result;
+  const body = $('#crypto-body');
+  const wrap = $('#crypto-wrap');
+  const empty = $('#crypto-empty');
+  const count = $('#crypto-count');
+
+  if (!r) {
+    body.innerHTML = '';
+    wrap.classList.add('hidden');
+    empty.classList.remove('hidden');
+    empty.innerHTML = '<div class="big">📡 还没有行情数据</div>'
+      + '正在等待首次抓取…<br>也可以点击上方「刷新行情」手动获取';
+    count.textContent = '';
+    return;
+  }
+
+  const query = state.cryptoQuery.trim().toUpperCase();
+  const rows = r.triggered.filter((row) => !query || row.instId.toUpperCase().includes(query));
+  rows.sort((a, b) => (a[state.sortKey] - b[state.sortKey]) * state.sortDir);
+
+  const rankByCoin = new Map();
+  [...r.triggered].sort((a, b) => b.cum_drop - a.cum_drop)
+    .forEach((row, index) => rankByCoin.set(row.instId, index + 1));
+
+  if (!rows.length) {
+    body.innerHTML = '';
+    wrap.classList.add('hidden');
+    empty.classList.remove('hidden');
+    if (!r.triggered.length) {
+      empty.innerHTML = '<div class="big">✅ 今日没有触发</div>'
+        + `${r.candidates.length} 个达标币对中，没有币种满足「连续 ${r.decline_days} 日下跌」。`;
+    } else {
+      empty.innerHTML = '<div class="big">没有匹配的币种</div>换个关键词试试。';
+    }
+    count.textContent = '';
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  empty.classList.add('hidden');
+  count.textContent = `显示 ${rows.length} / ${r.triggered.length} 个触发币种`;
+
+  body.innerHTML = rows.map((row) => {
+    const rank = rankByCoin.get(row.instId) || 0;
+    const rankCls = rank <= 3 ? ` r${rank}` : '';
+    const lastDrop = row.last_drop >= 0.05 ? `-${row.last_drop.toFixed(1)}%` : '0.0%';
+    const url = `https://www.okx.com/trade-spot/${row.base.toLowerCase()}-usdt`;
+    return `
+      <tr>
+        <td><span class="rank${rankCls}">${rank}</span></td>
+        <td>
+          <a class="coin" href="${url}" target="_blank" rel="noopener">
+            <span class="coin-base">${esc(row.base)}</span>${row.is_new ? '<span class="new-flag">NEW</span>' : ''}<span class="coin-quote">/USDT</span>
+          </a>
+        </td>
+        <td class="num mono">${fmtPrice(row.last)}</td>
+        <td class="num"><span class="delta down">▼ ${row.cum_drop.toFixed(1)}%</span></td>
+        <td class="num"><span class="delta down">${lastDrop}</span></td>
+        <td class="num mono">${fmtUsd(row.volume)}</td>
+      </tr>`;
+  }).join('');
+  updateSortArrows();
+}
+
+function renderNewCoins() {
+  const c = state.data?.crypto;
+  const r = c?.result;
+  const panel = $('#newcoin-panel');
+  const list = $('#newcoin-list');
+  const sub = $('#newcoin-sub');
+  const days = r?.new_coin_days || 0;
+
+  if (!r || !days) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+
+  const coins = r.new_coins || [];
+  const count = r.new_listing_count;
+  if (count === null || count === undefined) {
+    sub.textContent = `近 ${days} 天新币 · 上市数据暂不可用`;
+  } else if (count === 0) {
+    sub.textContent = `近 ${days} 天暂无新加密货币上市`;
+  } else {
+    sub.textContent = `近 ${days} 天上市 ${count} 个新币 · 连续 ${r.decline_days} 日下跌 ${coins.length} 个`;
+  }
+
+  if (!coins.length) {
+    let message;
+    if (count === null || count === undefined) {
+      message = '本轮未获取到新币上市数据。';
+    } else if (count === 0) {
+      message = `近 ${days} 天暂无新加密货币上市。`;
+    } else {
+      message = `近 ${days} 天上市的 ${count} 个新币中，暂无连续 ${r.decline_days} 日下跌。`;
+    }
+    list.innerHTML = `<div class="newcoin-empty">${message}</div>`;
+    return;
+  }
+
+  list.innerHTML = coins.map((coin) => {
+    const url = `https://www.okx.com/trade-spot/${coin.base.toLowerCase()}-usdt`;
+    const listed = Number(coin.days_listed || 0);
+    return `
+      <a class="newcoin-item" href="${url}" target="_blank" rel="noopener">
+        <span class="nc-main">
+          <span class="nc-base">${esc(coin.base)}</span>
+          <span class="nc-new">NEW</span>
+          <span class="nc-meta">上市 ${listed.toFixed(1)} 天 · 24h ${fmtUsd(coin.volume)}</span>
+        </span>
+        <span class="nc-drop">▼ ${coin.cum_drop.toFixed(1)}%</span>
+      </a>`;
+  }).join('');
+}
+
+function renderRules() {
+  const rules = state.data.rules;
+  const stats = state.data.stats;
+  $('#rule-sub').textContent = `${stats.rules_enabled} 条启用 / 共 ${rules.length} 条配置`;
+  const wrap = $('#rules-wrap');
+  const empty = $('#rules-empty');
+  const body = $('#rules-body');
+
+  if (!rules.length) {
+    wrap.classList.add('hidden');
+    empty.classList.remove('hidden');
+    empty.innerHTML = '<div class="big">还没有配置规则</div>'
+      + '编辑 <code>config.yaml</code> 的 <code>rules</code> 段，把 <code>enabled</code> 改成 <code>true</code>。<br>'
+      + '配置后可运行 <code>run.py once</code> 试跑一轮。';
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  empty.classList.add('hidden');
+  body.innerHTML = rules.map((rule) => `
+    <tr class="${rule.enabled ? '' : 'dim'}">
+      <td><span class="rule-name">${esc(rule.name)}</span></td>
+      <td><span class="tag">${esc(rule.platform)}</span></td>
+      <td>${esc(rule.type)}</td>
+      <td class="cond" title="${esc(rule.condition)}">${esc(rule.condition)}</td>
+      <td>${rule.enabled
+        ? '<span class="badge ok">启用</span>'
+        : '<span class="badge off">停用</span>'}</td>
+    </tr>`).join('');
+}
+
+function renderItems() {
+  const items = state.data.items;
+  $('#items-sub').textContent = items.length
+    ? `最近 ${items.length} 条记录 · 点击可查看价格走势`
+    : '暂无抓取记录';
+  const wrap = $('#items-wrap');
+  const empty = $('#items-empty');
+  const body = $('#items-body');
+
+  if (!items.length) {
+    wrap.classList.add('hidden');
+    empty.classList.remove('hidden');
+    empty.innerHTML = '<div class="big">还没有抓取记录</div>'
+      + '先登录平台 <code>run.py login jd</code>，<br>'
+      + '再启动监控 <code>./scripts/daemon.sh start</code>。';
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  empty.classList.add('hidden');
+  body.innerHTML = items.map((item) => {
+    const price = item.price === null || item.price === undefined
+      ? '<span class="muted">无报价</span>'
+      : '¥' + item.price.toLocaleString('zh-CN', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2,
+      });
+    return `
+      <tr class="clickable" data-platform="${esc(item.platform)}"
+          data-item-id="${esc(item.item_id)}" data-title="${esc(item.title || '')}">
+        <td class="item-title" title="${esc(item.title || '')}">${esc(item.title || item.item_id)}</td>
+        <td><span class="tag">${esc(item.platform_name)}</span></td>
+        <td class="num mono">${price}</td>
+        <td class="num muted">${fmtTime(item.ts)}</td>
+      </tr>`;
+  }).join('');
+}
+
+function renderAll() {
+  renderDaemon();
+  renderStats();
+  renderCryptoMeta();
+  renderCryptoTable();
+  renderNewCoins();
+  renderRules();
+  renderItems();
+}
+
+/* ---------- 数据加载 ---------- */
+async function loadOverview(showError = true) {
+  try {
+    const res = await fetch('/api/overview', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    state.data = await res.json();
+    renderAll();
+  } catch (err) {
+    if (showError) toast('面板数据加载失败：' + err.message, true);
+    const pill = $('#daemon-pill');
+    pill.className = 'pill warn';
+    pill.textContent = '连接失败';
+  }
+}
+
+async function refreshCrypto(silent = false) {
+  if (state.refreshing) return;
+  state.refreshing = true;
+  const btn = $('#btn-refresh');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '抓取中…';
+  if (!silent) toast('正在抓取 OKX 最新行情…');
+  try {
+    const res = await fetch('/api/crypto/refresh', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || '刷新失败');
+    await loadOverview(false);
+    if (!silent) {
+      toast(`行情已刷新：达标 ${data.result.candidates.length} 个，触发 ${data.result.triggered.length} 个`);
+    }
+  } catch (err) {
+    toast('行情刷新失败：' + err.message, true);
+  } finally {
+    state.refreshing = false;
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function sendCrypto() {
+  if (!confirm('将立即抓取最新行情并发送日报到钉钉群，确定继续？')) return;
+  const btn = $('#btn-send');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '发送中…';
+  try {
+    const res = await fetch('/api/crypto/send', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || '发送失败');
+    toast(`已推送到钉钉：${data.title}（触发 ${data.triggered} 个）`);
+    await loadOverview(false);
+  } catch (err) {
+    toast('发送失败：' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+/* ---------- 价格走势 ---------- */
+let lastChart = null;
+
+function drawChart(canvas, points) {
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = Math.max(320, canvas.clientWidth || 700);
+  const cssHeight = 270;
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  if (points.length < 2) {
+    ctx.fillStyle = '#8b96a8';
+    ctx.font = '13px -apple-system, "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('数据点不足，无法绘制趋势', cssWidth / 2, cssHeight / 2);
+    return;
+  }
+
+  const pad = { left: 64, right: 18, top: 18, bottom: 30 };
+  const prices = points.map((p) => p.price);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const span = (max - min) || max * 0.01 || 1;
+  const lo = min - span * 0.08;
+  const hi = max + span * 0.08;
+  const plotW = cssWidth - pad.left - pad.right;
+  const plotH = cssHeight - pad.top - pad.bottom;
+  const x = (i) => pad.left + plotW * (i / (points.length - 1));
+  const y = (v) => pad.top + plotH * (1 - (v - lo) / (hi - lo));
+
+  ctx.strokeStyle = 'rgba(255,255,255,.06)';
+  ctx.fillStyle = '#788496';
+  ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, monospace';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i += 1) {
+    const value = lo + ((hi - lo) * i) / 4;
+    const yy = y(value);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, yy);
+    ctx.lineTo(cssWidth - pad.right, yy);
+    ctx.stroke();
+    const label = value >= 1000 ? value.toFixed(0)
+      : value >= 1 ? value.toFixed(2) : value.toPrecision(4);
+    ctx.fillText('¥' + label, pad.left - 9, yy + 3.5);
+  }
+
+  ctx.textAlign = 'left';
+  ctx.fillText(fmtTime(points[0].ts), pad.left, cssHeight - 9);
+  ctx.textAlign = 'right';
+  ctx.fillText(fmtTime(points[points.length - 1].ts), cssWidth - pad.right, cssHeight - 9);
+
+  const gradient = ctx.createLinearGradient(0, pad.top, 0, cssHeight - pad.bottom);
+  gradient.addColorStop(0, 'rgba(124,92,255,.32)');
+  gradient.addColorStop(1, 'rgba(124,92,255,0)');
+
+  ctx.beginPath();
+  points.forEach((point, i) => {
+    const px = x(i);
+    const py = y(point.price);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  });
+  ctx.strokeStyle = '#8b5cf6';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  ctx.lineTo(x(points.length - 1), cssHeight - pad.bottom);
+  ctx.lineTo(x(0), cssHeight - pad.bottom);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  const lastX = x(points.length - 1);
+  const lastY = y(points[points.length - 1].price);
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#a78bfa';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 7, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(167,139,250,.28)';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+}
+
+async function openHistory(platform, itemId, title) {
+  const modal = $('#chart-modal');
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  $('#chart-title').textContent = title || itemId;
+  $('#chart-meta').textContent = '加载中…';
+  const canvas = $('#chart-canvas');
+  try {
+    const query = new URLSearchParams({ platform, item_id: itemId, limit: '300' });
+    const res = await fetch('/api/history?' + query.toString());
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '加载失败');
+    const points = data.points || [];
+    lastChart = points;
+    if (points.length) {
+      const prices = points.map((p) => p.price);
+      $('#chart-title').textContent = data.title || title || itemId;
+      $('#chart-meta').textContent = `${points.length} 个数据点 · `
+        + `最低 ¥${Math.min(...prices).toFixed(2)} · 最高 ¥${Math.max(...prices).toFixed(2)} · `
+        + `最新 ¥${prices[prices.length - 1].toFixed(2)}`;
+    } else {
+      $('#chart-meta').textContent = '暂无价格记录';
+    }
+    requestAnimationFrame(() => drawChart(canvas, points));
+  } catch (err) {
+    $('#chart-meta').textContent = '加载失败：' + err.message;
+  }
+}
+
+function closeChart() {
+  const modal = $('#chart-modal');
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+/* ---------- 时钟 / 事件 ---------- */
+function tickClock() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  $('#clock').textContent = `${pad(now.getMonth() + 1)}-${pad(now.getDate())} `
+    + `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+
+function maybeAutoRefresh() {
+  const result = state.data?.crypto?.result;
+  const age = result ? (Date.now() / 1000 - result.generated_at) : Infinity;
+  if (age > 15 * 60 && !state.refreshing) {
+    refreshCrypto(true);
+  }
+}
+
+function bindEvents() {
+  $('#btn-reload').addEventListener('click', () => loadOverview());
+  $('#btn-refresh').addEventListener('click', () => refreshCrypto(false));
+  $('#btn-send').addEventListener('click', sendCrypto);
+
+  $('#crypto-search').addEventListener('input', (event) => {
+    state.cryptoQuery = event.target.value;
+    renderCryptoTable();
+  });
+
+  document.querySelectorAll('#crypto-table th[data-sort]').forEach((th) => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (state.sortKey === key) state.sortDir *= -1;
+      else { state.sortKey = key; state.sortDir = -1; }
+      renderCryptoTable();
+      updateSortArrows();
+    });
+  });
+
+  $('#items-body').addEventListener('click', (event) => {
+    const row = event.target.closest('tr[data-platform]');
+    if (!row) return;
+    openHistory(row.dataset.platform, row.dataset.itemId, row.dataset.title);
+  });
+
+  $('#chart-close').addEventListener('click', closeChart);
+  $('#chart-modal').addEventListener('click', (event) => {
+    if (event.target === $('#chart-modal')) closeChart();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeChart();
+  });
+
+  window.addEventListener('resize', () => {
+    if ($('#chart-modal').classList.contains('show') && lastChart) {
+      drawChart($('#chart-canvas'), lastChart);
+    }
+  });
+}
+
+async function boot() {
+  bindEvents();
+  tickClock();
+  setInterval(tickClock, 1000);
+  await loadOverview();
+  maybeAutoRefresh();
+  setInterval(() => loadOverview(false), 60000);
+  setInterval(maybeAutoRefresh, 15 * 60 * 1000);
+}
+
+boot();
+</script>
+</body>
+</html>
