@@ -186,6 +186,9 @@ crypto:
 
 **服务器要求**：Linux x86_64/arm64、Docker 24+（含 compose 插件）、≥2 GB 内存、≥5 GB 磁盘。
 
+> 国内构建默认使用 DaoCloud 基础镜像、阿里云 apt/PyPI、npmmirror Playwright 浏览器镜像；
+> 海外服务器可用 `BASE_IMAGE`、`APT_MIRROR`、`PIP_INDEX_URL`、`PLAYWRIGHT_DOWNLOAD_HOST` 覆盖。
+
 一键部署（在本机执行，需要能 SSH 到服务器）：
 
 ```bash
