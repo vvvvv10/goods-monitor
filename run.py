@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import copy
 import logging
+import os
 import signal
 import sys
 from pathlib import Path
@@ -73,8 +74,19 @@ def install_sigterm_handler() -> None:
 def cmd_run(args, cfg: dict) -> None:
     setup_logging(cfg)
     install_sigterm_handler()
-    from monitor.engine import Engine
-    Engine(cfg).run_forever()
+    # 自己写 pid：不依赖 daemon.sh，容器 / systemd 直接启动时面板也能识别
+    pid_path = resolve_path("data/monitor.pid")
+    pid_path.parent.mkdir(parents=True, exist_ok=True)
+    pid_path.write_text(str(os.getpid()), encoding="utf-8")
+    try:
+        from monitor.engine import Engine
+        Engine(cfg).run_forever()
+    finally:
+        try:
+            if pid_path.read_text(encoding="utf-8").strip() == str(os.getpid()):
+                pid_path.unlink()
+        except OSError:
+            pass
 
 
 def cmd_once(args, cfg: dict) -> None:
