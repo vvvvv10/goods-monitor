@@ -179,6 +179,71 @@ crypto:
 
 端口在 `config.yaml` 的 `web` 段修改（默认 8765）。
 
+## Docker 部署（服务器 / 7×24 运行）
+
+适合放在一台 Linux 服务器上长期运行。镜像基于 Python 3.11 + Playwright Chromium，
+容器内用 supervisor 同时托管监控循环和 Web 面板；`data/` 与 `config.yaml` 挂在宿主机。
+
+**服务器要求**：Linux x86_64/arm64、Docker 24+（含 compose 插件）、≥2 GB 内存、≥5 GB 磁盘。
+
+一键部署（在本机执行，需要能 SSH 到服务器）：
+
+```bash
+./deploy/deploy.sh root@1.2.3.4
+# 非默认端口/密钥：
+DEPLOY_SSH_OPTS='-p 2222 -i ~/.ssh/id_ed25519' ./deploy/deploy.sh ubuntu@example.com
+```
+
+脚本会：同步代码 → 把 `config.yaml` 的浏览器内核改为容器自带 Chromium（`chromium` 新无头模式）→ 上传配置 →
+远程执行 `docker compose up -d --build`。
+
+手动部署：
+
+```bash
+git clone git@github.com:vvvvv10/goods-monitor.git
+cd goods-monitor
+cp config.example.yaml config.yaml   # 填钉钉 webhook
+# 把 config.yaml 里的 browser.channel 改成 "chromium"（容器内没有 Google Chrome）
+mkdir -p data
+docker compose up -d --build
+```
+
+访问面板（推荐 SSH 隧道，端口不对公网开放）：
+
+```bash
+ssh -N -L 8765:127.0.0.1:8765 root@1.2.3.4
+# 本机浏览器打开 http://127.0.0.1:8765
+```
+
+**服务器上扫码登录**（无图形界面）：
+
+```bash
+# 1. 暂停监控，避免 profile 冲突
+docker compose exec app supervisorctl -c /app/deploy/supervisord.conf stop monitor
+# 2. 无头登录，登录页每 3 秒截图到 data/login/jd.png
+docker compose exec app python run.py login jd --headless --timeout 600
+# 3. 另开终端下载截图并扫码
+scp root@1.2.3.4:/opt/goods-monitor/data/login/jd.png .
+# 4. 登录成功后恢复监控
+docker compose exec app supervisorctl -c /app/deploy/supervisord.conf start monitor
+docker compose exec app python run.py status
+```
+
+淘宝/拼多多/闲鱼把 `jd` 换成对应平台即可。登录态保存在 `data/profiles/`，
+重新部署不会丢失（`data/` 不参与镜像构建和同步）。
+
+**运维命令**：
+
+```bash
+docker compose ps
+docker compose logs -f --tail=100
+docker compose restart
+docker compose down            # 停止（data/ 保留）
+docker compose up -d --build   # 更新代码后重建
+```
+
+时区固定为 `Asia/Shanghai`，OKX 日报仍为每天 00:10 推送。
+
 ## 常用命令
 
 | 命令 | 作用 |

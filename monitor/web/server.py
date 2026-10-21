@@ -308,8 +308,9 @@ def serve(cfg: dict, host: str = "127.0.0.1", port: int = 8765) -> None:
         ) from exc
     httpd.daemon_threads = True
     log.info("Web 面板已启动: http://%s:%d", host, port)
+    local_only = host in ("127.0.0.1", "localhost", "::1")
     print(f"\n  deal-monitor 监控面板: http://{host}:{port}\n"
-          f"  仅监听本机，按 Ctrl+C 停止\n", flush=True)
+          f"  {'仅监听本机' if local_only else '监听所有网卡'}，按 Ctrl+C 停止\n", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

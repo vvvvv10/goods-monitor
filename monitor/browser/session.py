@@ -6,12 +6,16 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
 from playwright.sync_api import BrowserContext, Playwright, sync_playwright
 
 log = logging.getLogger("browser")
+
+# 容器内 Chromium 通常无法使用内核沙箱，需要显式关闭。
+IN_CONTAINER = Path("/.dockerenv").exists() or os.environ.get("DEAL_MONITOR_NO_SANDBOX") == "1"
 
 
 class BrowserManager:
@@ -36,6 +40,13 @@ class BrowserManager:
             profile.mkdir(parents=True, exist_ok=True)
             log.info("启动浏览器 profile=%s headless=%s", profile.name, self.headless)
             assert self._pw is not None
+            args = [
+                "--disable-blink-features=AutomationControlled",
+                "--no-first-run",
+                "--no-default-browser-check",
+            ]
+            if IN_CONTAINER:
+                args += ["--no-sandbox", "--disable-dev-shm-usage"]
             ctx = self._pw.chromium.launch_persistent_context(
                 user_data_dir=str(profile),
                 headless=self.headless,
@@ -43,11 +54,7 @@ class BrowserManager:
                 locale="zh-CN",
                 timezone_id="Asia/Shanghai",
                 viewport={"width": 1366, "height": 900},
-                args=[
-                    "--disable-blink-features=AutomationControlled",
-                    "--no-first-run",
-                    "--no-default-browser-check",
-                ],
+                args=args,
             )
             ctx.set_default_navigation_timeout(self.nav_timeout_ms)
             ctx.add_init_script(

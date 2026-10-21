@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import copy
 import logging
+import signal
 import sys
 from pathlib import Path
 
@@ -61,8 +62,17 @@ def detect_platform(url: str) -> str:
 
 # ---------------- 子命令 ----------------
 
+def install_sigterm_handler() -> None:
+    """docker stop / systemd stop 时优雅退出，避免留下浏览器 profile 锁。"""
+    def _handler(signum, frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, _handler)
+
+
 def cmd_run(args, cfg: dict) -> None:
     setup_logging(cfg)
+    install_sigterm_handler()
     from monitor.engine import Engine
     Engine(cfg).run_forever()
 
@@ -102,16 +112,25 @@ def cmd_check(args, cfg: dict) -> None:
 
 def cmd_login(args, cfg: dict) -> None:
     from monitor.browser.login import login
-    login(args.platform, resolve_path(cfg["browser"]["profiles_dir"]))
+    bcfg = cfg["browser"]
+    login(
+        args.platform,
+        resolve_path(bcfg["profiles_dir"]),
+        headless=args.headless,
+        qr_out=args.qr_out,
+        timeout=args.timeout,
+        channel=bcfg.get("channel", "chrome"),
+    )
 
 
 def cmd_status(args, cfg: dict) -> None:
     from monitor.browser.login import check_login
     profiles = resolve_path(cfg["browser"]["profiles_dir"])
+    channel = cfg["browser"].get("channel", "chrome")
     print("各平台登录状态：")
     for plat in ("jd", "taobao", "pdd", "xianyu"):
         try:
-            ok, detail = check_login(plat, profiles)
+            ok, detail = check_login(plat, profiles, channel=channel)
         except Exception as exc:
             ok, detail = False, f"检测出错: {exc}"
         print(f"  {PLATFORM_NAMES[plat]:<4} {'✅ 已登录' if ok else '❌ 未登录'}  {detail}")
@@ -150,6 +169,7 @@ def cmd_web(args, cfg: dict) -> None:
     web_cfg = copy.deepcopy(cfg)
     web_cfg.setdefault("logging", {})["file"] = "data/web.log"
     setup_logging(web_cfg)
+    install_sigterm_handler()
     from monitor.web.server import serve
     wcfg = cfg.get("web") or {}
     host = args.host or wcfg.get("host", "127.0.0.1")
@@ -231,6 +251,12 @@ def main() -> None:
     p_check.add_argument("--platform", choices=["jd", "taobao", "pdd", "xianyu"], default=None)
     p_login = sub.add_parser("login", help="扫码登录并保存会话")
     p_login.add_argument("platform", choices=["jd", "taobao", "pdd", "xianyu"])
+    p_login.add_argument("--headless", action="store_true",
+                         help="无头模式：定时截图登录页，适合服务器/容器")
+    p_login.add_argument("--qr-out", default=None,
+                         help="无头模式截图路径（默认 data/login/<平台>.png）")
+    p_login.add_argument("--timeout", type=int, default=300,
+                         help="无头模式等待扫码的秒数（默认 300）")
     sub.add_parser("status", help="查看各平台登录状态")
     sub.add_parser("test-notify", help="发送测试通知")
     p_crypto = sub.add_parser("crypto", help="立即执行一次 OKX 虚拟币日报")

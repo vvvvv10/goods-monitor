@@ -1,0 +1,31 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        # 国内服务器可设 BASE_IMAGE=docker.m.daocloud.io/library/python:3.11-slim-bookworm
+        BASE_IMAGE: ${BASE_IMAGE:-python:3.11-slim-bookworm}
+        APT_MIRROR: ${APT_MIRROR:-mirrors.aliyun.com}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple/}
+        PLAYWRIGHT_DOWNLOAD_HOST: ${PLAYWRIGHT_DOWNLOAD_HOST:-}
+    image: goods-monitor:latest
+    container_name: goods-monitor
+    restart: unless-stopped
+    init: true
+    environment:
+      TZ: Asia/Shanghai
+      DEAL_MONITOR_NO_SANDBOX: "1"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./data:/app/data
+    ports:
+      # 默认只监听回环地址，通过 SSH 隧道访问面板：
+      #   ssh -N -L 8765:127.0.0.1:8765 user@server
+      # 如需公网访问，设 WEB_BIND=0.0.0.0（务必配防火墙/反向代理鉴权）
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8765}:8765"
+    shm_size: "1gb"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
