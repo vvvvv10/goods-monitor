@@ -24,6 +24,9 @@ services:
       # 如需公网访问，设 WEB_BIND=0.0.0.0（务必配防火墙/反向代理鉴权）
       - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8765}:8765"
     shm_size: "1gb"
+    # 服务器内存较紧时限制容器，避免 OOM 波及宿主机其他服务；无购物规则时占用很低。
+    mem_limit: "${MEM_LIMIT:-768m}"
+    stop_grace_period: 45s
     logging:
       driver: json-file
       options:

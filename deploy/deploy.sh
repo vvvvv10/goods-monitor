@@ -61,6 +61,7 @@ scp -q ${DEPLOY_SSH_OPTS:-} "$TMP_CFG" "$SERVER:$REMOTE_DIR/config.yaml"
 # 国内服务器直连 Docker Hub 经常 403，默认走 DaoCloud/国内镜像；海外可覆盖。
 BASE_IMAGE="${BASE_IMAGE:-docker.m.daocloud.io/library/python:3.11-slim-bookworm}"
 PLAYWRIGHT_DOWNLOAD_HOST="${PLAYWRIGHT_DOWNLOAD_HOST:-https://registry.npmmirror.com/-/binary/playwright}"
+MEM_LIMIT="${MEM_LIMIT:-768m}"
 
 echo "==> 构建并启动容器（首次约 5-15 分钟）"
 $SSH_CMD "$SERVER" "set -e
@@ -68,8 +69,12 @@ $SSH_CMD "$SERVER" "set -e
   command -v docker >/dev/null || { echo 'Docker 未安装，请先安装 Docker + compose 插件'; exit 1; }
   docker compose version >/dev/null || { echo '缺少 docker compose 插件'; exit 1; }
   mkdir -p data
-  if [ \"\$(id -u)\" = 0 ]; then chown -R 1000:1000 data; fi
-  BASE_IMAGE='$BASE_IMAGE' PLAYWRIGHT_DOWNLOAD_HOST='$PLAYWRIGHT_DOWNLOAD_HOST' docker compose up -d --build
+  if [ \"\$(id -u)\" = 0 ]; then
+    chown -R 1000:1000 data
+    chown 1000:1000 config.yaml
+  fi
+  chmod 600 config.yaml
+  BASE_IMAGE='$BASE_IMAGE' PLAYWRIGHT_DOWNLOAD_HOST='$PLAYWRIGHT_DOWNLOAD_HOST' MEM_LIMIT='$MEM_LIMIT' docker compose up -d --build
   docker compose ps"
 
 echo
